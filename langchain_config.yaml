@@ -1,0 +1,5 @@
+# This is a placeholder for langchain_config.yaml
+# Please populate this file with your actual LangChain Cloud configuration if needed.
+# Example:
+#  langchain_api_key: "your_langchain_api_key"
+#  langchain_project: "your_project_name"

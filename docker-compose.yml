@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  regulatory-defi-compass:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - PYTHONPATH=/app
+    env_file:
+      - .env
