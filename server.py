@@ -18,15 +18,15 @@ available in the LangServe deployment, you can import the router from
 
 from fastapi import FastAPI
 from langserve import add_routes
-from src.agent.agent import ComplianceAgent
+from src.agent.main import get_agent
 
 # ---------------------------------------------------------------------------
-# Agent initialization
+# Agent initialization - use shared singleton instance
 # ---------------------------------------------------------------------------
-agent_instance = ComplianceAgent()
-# ``create_workflow`` returns a LangGraph runnable that can be exposed via
-# LangServe.  The runnable encapsulates the entire conversational logic.
-runnable = agent_instance.create_workflow()
+# ``get_agent`` returns the singleton agent instance and its workflow.
+# This ensures the same agent is used across both LangServe routes and
+# the /health and /chat endpoints from src.agent.main.
+agent_instance, runnable = get_agent()
 
 # ---------------------------------------------------------------------------
 # FastAPI application
@@ -51,9 +51,7 @@ add_routes(
 # ---------------------------------------------------------------------------
 # Optional: expose original FastAPI endpoints
 # ---------------------------------------------------------------------------
-# If you want to keep the original /health and /chat endpoints from
-# ``src.agent.main`` available, uncomment the following lines:
-#
-# from src.agent.main import router as main_router
-# app.include_router(main_router)
+# Include the /health and /chat endpoints from src.agent.main
+from src.agent.main import router as main_router
+app.include_router(main_router)
 

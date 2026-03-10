@@ -33,8 +33,16 @@ Designed for clarity, safety, and informed DeFi investing.
 
 ## API Endpoints
 
-- POST /chat - Main endpoint for processing user queries
-- GET /health - Health check endpoint
+### Standard FastAPI Endpoints
+- `GET /health` - Health check endpoint
+- `POST /chat` - Main endpoint for processing user queries
+
+### LangServe Endpoint
+- `POST /regulatory-defi-compass-agent/invoke` - LangGraph workflow invocation via LangServe
+- `POST /regulatory-defi-compass-agent/stream` - Streaming responses from the workflow
+- `GET /regulatory-defi-compass-agent/playground` - Interactive playground for testing
+
+All endpoints share the same agent instance for consistency.
 
 ## Running with Docker
 
@@ -51,6 +59,7 @@ docker-compose up --build
 Once running, access the application at `http://localhost:3000`
 - Health check: `http://localhost:3000/health`
 - Chat endpoint: `http://localhost:3000/chat` (POST requests)
+- LangServe playground: `http://localhost:3000/regulatory-defi-compass-agent/playground`
 
 ### Option 2: Using Docker directly
 ```bash
@@ -67,6 +76,7 @@ docker run -p 3000:3000 -e GROK_API_KEY=your_api_key_here regulatory-defi-compas
 Once running, access the application at `http://localhost:3000`
 - Health check: `http://localhost:3000/health`
 - Chat endpoint: `http://localhost:3000/chat` (POST requests)
+- LangServe playground: `http://localhost:3000/regulatory-defi-compass-agent/playground`
 
 ## Deploying to LangChain Cloud (LangServe) for Warden Protocol
 
@@ -112,17 +122,22 @@ This agent is designed for deployment as a [LangServe](https://github.com/langch
 
 ### LangServe Entry Point
 
-To enable deployment to LangChain Cloud, you need a `server.py` file in your agent's root directory. This file will define how your `ComplianceAgent` is exposed as a LangServe runnable. Here is the code to create this file:
+The `server.py` file in your agent's root directory serves as the entry point for LangChain Cloud deployment. It exposes your `ComplianceAgent` as a LangServe runnable and includes the standard FastAPI endpoints (`/health` and `/chat`).
+
+**Key Features:**
+- Uses a singleton pattern to ensure a single agent instance across all endpoints
+- Exposes the LangGraph workflow via LangServe at `/regulatory-defi-compass-agent`
+- Includes `/health` and `/chat` endpoints from `src.agent.main` for backward compatibility
+- All endpoints share the same agent instance for consistency and efficiency
 
 ```python
 # server.py
 from fastapi import FastAPI
 from langserve import add_routes
-from src.agent.agent import ComplianceAgent
+from src.agent.main import get_agent, router as main_router
 
-# Initialize your agent
-agent_instance = ComplianceAgent()
-runnable = agent_instance.create_workflow() # create_workflow returns a LangGraph runnable
+# Initialize your agent using the singleton pattern
+agent_instance, runnable = get_agent()
 
 app = FastAPI(
     title="Regulatory DeFi Compass Agent",
@@ -139,13 +154,11 @@ add_routes(
     enable_events=True,
 )
 
-# Optionally, you can include your original /health and /chat endpoints if needed.
-# For example, by importing the router from src.agent.main and including it:
-# from src.agent.main import router as main_router
-# app.include_router(main_router)
+# Include the /health and /chat endpoints
+app.include_router(main_router)
 ```
 
-This `server.py` will serve as the actual entry point for LangServe deployment.
+This `server.py` serves as the actual entry point for LangServe deployment and ensures all endpoints use the same agent instance.
 
 ## Configuration
  
@@ -189,15 +202,19 @@ Ensure your `GROK_API_KEY`, `LLM_MODEL`, and other relevant API keys are correct
 
 3. Run the agent:
    ```bash
-   # Method 1: Using the run_server.py script (recommended)
-   python run_server.py
+   # Method 1: LangServe mode with all endpoints (recommended for production)
+   uvicorn server:app --host 0.0.0.0 --port 3000
    
-   # Method 2: Using uvicorn directly
+   # Method 2: Standalone FastAPI mode (simpler, for development)
+   python run_server.py
+   # or
    uvicorn src.agent.main:app --host 0.0.0.0 --port 3000
    
-   # Method 3: Using uvicorn with auto-reload for development
-   uvicorn src.agent.main:app --host 0.0.0.0 --port 3000 --reload
+   # Method 3: Development mode with auto-reload
+   uvicorn server:app --host 0.0.0.0 --port 3000 --reload
    ```
+   
+   **Note:** Both modes use the same singleton agent instance. The LangServe mode (`server:app`) includes both LangServe routes and standard FastAPI endpoints, while standalone mode (`src.agent.main:app`) only includes the FastAPI endpoints.
    
 4. Access the API:
    - Health check: `http://localhost:3000/health`
